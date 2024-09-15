@@ -1,0 +1,93 @@
+#• Block Size: 8 bits.
+#• Key Size: 8 bits.
+
+#	Create a 4x4 substitution box and function
+s_box = [
+    [0x6, 0x5, 0xA, 0xB],
+    [0x1, 0x8, 0xC, 0x3],
+    [0x9, 0x2, 0x4, 0x7],
+    [0xE, 0xF, 0x0, 0xD]
+]
+
+def substitute_4bits(input_bits):
+    row = (input_bits & 0b1100) >> 2
+    col = input_bits & 0b0011
+    return s_box[row][col]
+
+#permutation table with function
+perm_table = [7, 3, 2, 6, 4, 0, 5, 1]
+
+def permute(bits):
+    return sum(((bits >> i) & 1) << perm_table[i] for i in range(8))
+
+#implementing basic feistel function
+def feistel_function(input_half, key):
+    return input_half ^ key
+
+#Single -round encryption
+def encrypt_block(plaintext, key):
+    left_half = (plaintext & 0b11110000) >> 4
+    right_half = plaintext & 0b00001111
+    substituted = substitute_4bits(left_half)
+    permuted = permute((substituted << 4) | right_half)
+    feistel_output = feistel_function(right_half, key)
+    return (feistel_output << 4) | permuted
+
+#implementing ECB mode
+#Each 8 bit block is processed independantly
+def encrypt_ecb(plaintext, key):
+    return [encrypt_block(block, key) for block in plaintext]
+
+def decrypt_ecb(ciphertext, key):
+    return [encrypt_block(block, key) for block in ciphertext]
+
+#implementing CBC with function
+def encrypt_cbc(plaintext, key, iv):
+    ciphertext = []
+    prev_block = iv
+    for block in plaintext:
+        xor_input = block ^ prev_block
+        encrypted_block = encrypt_block(xor_input, key)
+        ciphertext.append(encrypted_block)
+        prev_block = encrypted_block
+    return ciphertext
+
+def decrypt_cbc(ciphertext, key, iv):
+    plaintext = []
+    prev_block = iv
+    for block in ciphertext:
+        decrypted_block = encrypt_block(block, key)
+        plaintext.append(decrypted_block ^ prev_block)
+        prev_block = block
+    return plaintext
+
+
+#implementing OFB (bonus points- optional)
+def encrypt_ofb(plaintext, key, iv):
+    output = iv
+    ciphertext = []
+    for block in plaintext:
+        output = encrypt_block(output, key)
+        ciphertext.append(output ^ block)
+    return ciphertext
+
+def decrypt_ofb(ciphertext, key, iv):
+    output = iv
+    plaintext = []
+    for block in ciphertext:
+        output = encrypt_block(output, key)
+        plaintext.append(output ^ block)
+    return plaintext
+
+#encryption and decryption of sample output
+#encrypt and decrypt using ECB
+plaintext = b'I LOVE CRYPTOGRAPHY'
+key = 0b10101010
+ciphertext_ecb = encrypt_ecb(plaintext, key)
+decrypted_ecb = decrypt_ecb(ciphertext_ecb, key)
+
+#encrypt and decrypt using CBC
+iv = 0b01010101
+ciphertext_cbc = encrypt_cbc(plaintext, key, iv)
+decrypted_cbc = decrypt_cbc(ciphertext_cbc, key, iv)
+
